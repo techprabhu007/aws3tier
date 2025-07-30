@@ -7,9 +7,6 @@ pipeline {
         BACKEND_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/backend"
     }
     stages {
-        stage('Checkout') {
-            steps { git 'https://github.com/your-repo/ecommerce.git' }
-        }
         stage('SonarQube Analysis') {
             steps { sh 'sonar-scanner' }
         }
