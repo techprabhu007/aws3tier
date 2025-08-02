@@ -12,4 +12,8 @@
         "start": "react-scripts start",
         "build": "react-scripts build"
     }
+    "scripts": {
+        "test": "echo \"No tests yet\" && exit 0"
+      }
+      
 }

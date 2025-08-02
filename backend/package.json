@@ -10,4 +10,8 @@
     "scripts": {
         "start": "node src/app.js"
     }
+    "scripts": {
+        "test": "echo \"No tests yet\" && exit 0"
+      }
+      
 }
