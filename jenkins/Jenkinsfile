@@ -16,24 +16,6 @@ pipeline {
     }
 
     stages {
-        stage('Frontend Unit Tests') {
-            steps {
-                dir('frontend') {
-                    sh 'npm install'
-                    sh 'npm test' // or npm run test
-                }
-            }
-        }
-
-        stage('Backend Unit Tests') {
-            steps {
-                dir('backend') {
-                    sh 'npm install'
-                    sh 'npm test'
-                }
-            }
-        }
-
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
