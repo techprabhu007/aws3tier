@@ -1,100 +1,48 @@
 pipeline {
     agent any
-
     environment {
         AWS_REGION = "us-west-2"
         ACCOUNT_ID = "778813324501"
-
         FRONTEND_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/frontend"
         BACKEND_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/backend"
-        
-        SONAR_PROJECT_KEY = "E-commerce"
     }
-
     stages {
         stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('SonarQube') {
-                    sh '''
-                    sonar-scanner \
-                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                        -Dsonar.sources=. \
-                        -Dsonar.host.url=http://localhost:9000
-                    '''
-                }
-            }
+            steps { sh 'sonar-scanner' }
         }
-
         stage('Build Docker Images') {
             steps {
-                sh '''
-                docker build -t frontend ./frontend
-                docker build -t backend ./backend
-                '''
+                sh 'docker build -t frontend ./frontend'
+                sh 'docker build -t backend ./backend'
             }
         }
-
-        stage('Trivy Security Scan') {
+        stage('Trivy Scan') {
             steps {
-                sh '''
-                trivy image frontend > trivy-frontend.txt || true
-                trivy image backend > trivy-backend.txt || true
-                '''
-            }
-            post {
-                always {
-                    archiveArtifacts artifacts: 'trivy-*.txt', fingerprint: true
-                }
+                sh 'trivy image frontend'
+                sh 'trivy image backend'
             }
         }
-
-        stage('Login to AWS ECR') {
+        stage('Push to ECR') {
             steps {
                 sh '''
                 aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
-                '''
-            }
-        }
-
-        stage('Tag & Push Docker Images to ECR') {
-            steps {
-                sh '''
                 docker tag frontend:latest ${FRONTEND_REPO}:latest
                 docker tag backend:latest ${BACKEND_REPO}:latest
-
                 docker push ${FRONTEND_REPO}:latest
                 docker push ${BACKEND_REPO}:latest
                 '''
             }
         }
-
-        stage('Deploy to EC2 via AWS SSM') {
+        stage('Deploy to EC2 via SSM') {
             steps {
                 sh '''
-                aws ssm send-command \
-                    --targets "Key=tag:Role,Values=Frontend" \
-                    --document-name "AWS-RunShellScript" \
-                    --comment "Deploy Frontend" \
-                    --region ${AWS_REGION} \
-                    --parameters 'commands=["docker pull ${FRONTEND_REPO}:latest", "docker rm -f frontend || true", "docker run -d -p 80:3000 --name frontend ${FRONTEND_REPO}:latest"]'
+                aws ssm send-command --targets "Key=tag:Role,Values=Frontend" --document-name "AWS-RunShellScript" \
+                --comment "Deploy Frontend" --region ${AWS_REGION} --parameters 'commands=["docker pull ${FRONTEND_REPO}:latest && docker run -d -p 80:3000 ${FRONTEND_REPO}:latest"]'
 
-                aws ssm send-command \
-                    --targets "Key=tag:Role,Values=Backend" \
-                    --document-name "AWS-RunShellScript" \
-                    --comment "Deploy Backend" \
-                    --region ${AWS_REGION} \
-                    --parameters 'commands=["docker pull ${BACKEND_REPO}:latest", "docker rm -f backend || true", "docker run -d -p 5000:5000 --name backend ${BACKEND_REPO}:latest"]'
+                aws ssm send-command --targets "Key=tag:Role,Values=Backend" --document-name "AWS-RunShellScript" \
+                --comment "Deploy Backend" --region ${AWS_REGION} --parameters 'commands=["docker pull ${BACKEND_REPO}:latest && docker run -d -p 5000:5000 ${BACKEND_REPO}:latest"]'
                 '''
             }
         }
     }
-
-    post {
-        always {
-            echo 'Cleaning up workspace...'
-            cleanWs()
-        }
-    }
 }
-
-
