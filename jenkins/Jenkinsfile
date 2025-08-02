@@ -5,22 +5,23 @@ pipeline {
         ACCOUNT_ID = "778813324501"
         FRONTEND_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/frontend"
         BACKEND_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/backend"
-        SONAR_AUTH_TOKEN = credentials('sonar-token')  // Jenkins Credential ID
+        SONAR_AUTH_TOKEN = credentials('E-Commerce')  // Jenkins Credential ID
     }
     stages {
         stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('SonarQube') {
-                    sh '''
-                        sonar-scanner \
-                          -Dsonar.projectKey=my-project \
-                          -Dsonar.sources=. \
-                          -Dsonar.host.url=http://localhost:9000 \
-                          -Dsonar.login=$SONAR_AUTH_TOKEN
-                    '''
-                }
+            {
+        withSonarQubeEnv('SonarQube') {
+            withCredentials([string(credentialsId: 'E-commerce', variable: 'SONAR_TOKEN')]) {
+                sh '''
+                    sonar-scanner \
+                      -Dsonar.projectKey=my-project \
+                      -Dsonar.sources=. \
+                      -Dsonar.host.url=http://localhost:9000 \
+                      -Dsonar.login=$SONAR_TOKEN
+                '''
             }
         }
+    }
 
         stage('Build Docker Images') {
             steps {
