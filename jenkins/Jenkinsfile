@@ -1,27 +1,29 @@
 pipeline {
     agent any
+
     environment {
         AWS_REGION = "us-west-2"
         ACCOUNT_ID = "778813324501"
         FRONTEND_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/frontend"
         BACKEND_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/backend"
-        SONAR_AUTH_TOKEN = credentials('E-Commerce')  // Jenkins Credential ID
     }
+
     stages {
         stage('SonarQube Analysis') {
-            {
-        withSonarQubeEnv('SonarQube') {
-            withCredentials([string(credentialsId: 'E-commerce', variable: 'SONAR_TOKEN')]) {
-                sh '''
-                    sonar-scanner \
-                      -Dsonar.projectKey=my-project \
-                      -Dsonar.sources=. \
-                      -Dsonar.host.url=http://localhost:9000 \
-                      -Dsonar.login=$SONAR_TOKEN
-                '''
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    withCredentials([string(credentialsId: 'E-commerce', variable: 'SONAR_TOKEN')]) {
+                        sh '''
+                            sonar-scanner \
+                              -Dsonar.projectKey=my-project \
+                              -Dsonar.sources=. \
+                              -Dsonar.host.url=http://localhost:9000 \
+                              -Dsonar.login=$SONAR_TOKEN
+                        '''
+                    }
+                }
             }
         }
-    }
 
         stage('Build Docker Images') {
             steps {
@@ -40,11 +42,11 @@ pipeline {
         stage('Push to ECR') {
             steps {
                 sh '''
-                aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
-                docker tag frontend:latest ${FRONTEND_REPO}:latest
-                docker tag backend:latest ${BACKEND_REPO}:latest
-                docker push ${FRONTEND_REPO}:latest
-                docker push ${BACKEND_REPO}:latest
+                    aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                    docker tag frontend:latest ${FRONTEND_REPO}:latest
+                    docker tag backend:latest ${BACKEND_REPO}:latest
+                    docker push ${FRONTEND_REPO}:latest
+                    docker push ${BACKEND_REPO}:latest
                 '''
             }
         }
@@ -52,11 +54,11 @@ pipeline {
         stage('Deploy to EC2 via SSM') {
             steps {
                 sh '''
-                aws ssm send-command --targets "Key=tag:Role,Values=Frontend" --document-name "AWS-RunShellScript" \
-                --comment "Deploy Frontend" --region ${AWS_REGION} --parameters 'commands=["docker pull ${FRONTEND_REPO}:latest && docker run -d -p 80:3000 ${FRONTEND_REPO}:latest"]'
+                    aws ssm send-command --targets "Key=tag:Role,Values=Frontend" --document-name "AWS-RunShellScript" \
+                      --comment "Deploy Frontend" --region ${AWS_REGION} --parameters 'commands=["docker pull ${FRONTEND_REPO}:latest && docker run -d -p 80:3000 ${FRONTEND_REPO}:latest"]'
 
-                aws ssm send-command --targets "Key=tag:Role,Values=Backend" --document-name "AWS-RunShellScript" \
-                --comment "Deploy Backend" --region ${AWS_REGION} --parameters 'commands=["docker pull ${BACKEND_REPO}:latest && docker run -d -p 5000:5000 ${BACKEND_REPO}:latest"]'
+                    aws ssm send-command --targets "Key=tag:Role,Values=Backend" --document-name "AWS-RunShellScript" \
+                      --comment "Deploy Backend" --region ${AWS_REGION} --parameters 'commands=["docker pull ${BACKEND_REPO}:latest && docker run -d -p 5000:5000 ${BACKEND_REPO}:latest"]'
                 '''
             }
         }
