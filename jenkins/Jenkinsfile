@@ -16,15 +16,12 @@ pipeline {
     stages {
         stage('SonarQube Analysis') {
             steps {
-                // The 'withSonarQubeEnv' block now correctly provides the host URL
-                // from your Jenkins system configuration.
                 withSonarQubeEnv('SonarQube') {
                     withCredentials([string(credentialsId: 'E-commerce', variable: 'SONAR_TOKEN')]) {
-                        // REMOVED the hardcoded '-Dsonar.host.url'.
                         sh """
                             sonar-scanner \
                               -Dsonar.projectKey=aws3tier \
-                              -Dsonar.projectName=aws3tiere \
+                              -Dsonar.projectName=aws3tier \
                               -Dsonar.sources=. \
                               -Dsonar.login=$SONAR_TOKEN
                         """
@@ -44,7 +41,6 @@ pipeline {
 
         stage('Trivy Security Scan') {
             steps {
-                // This command will exit with an error code only if HIGH or CRITICAL vulnerabilities are found.
                 sh '''
                     trivy image --severity HIGH,CRITICAL --exit-code 1 frontend
                     trivy image --severity HIGH,CRITICAL --exit-code 1 backend
@@ -52,25 +48,21 @@ pipeline {
             }
         }
         
-        // This 'withAWS' block handles authentication for all AWS commands inside it.
-        // It uses the IAM role specified by AWS_ROLE_CREDENTIAL_ID.
-        withAWS(role: AWS_ROLE_CREDENTIAL_ID, roleSessionName: "jenkins-session-${BUILD_NUMBER}", region: AWS_REGION) {
-
-            stage('Push to ECR') {
-                steps {
-                    script {
-                        // The ECR login is now handled automatically by the withAWS block.
-                        sh "docker tag frontend:latest ${FRONTEND_REPO}:latest"
-                        sh "docker tag backend:latest ${BACKEND_REPO}:latest"
-
-                        sh "docker push ${FRONTEND_REPO}:latest"
-                        sh "docker push ${BACKEND_REPO}:latest"
-                    }
-                }
-            }
-
-            stage('Deploy to EC2 via SSM') {
-                steps {
+        // CORRECTED STRUCTURE: A single parent stage for all AWS work
+        stage('Deploy to AWS') {
+            steps {
+                // withAWS goes INSIDE the steps block
+                withAWS(role: AWS_ROLE_CREDENTIAL_ID, roleSessionName: "jenkins-session-${BUILD_NUMBER}", region: AWS_REGION) {
+                    
+                    // ECR Push Logic
+                    echo "Pushing images to ECR..."
+                    sh "docker tag frontend:latest ${FRONTEND_REPO}:latest"
+                    sh "docker tag backend:latest ${BACKEND_REPO}:latest"
+                    sh "docker push ${FRONTEND_REPO}:latest"
+                    sh "docker push ${BACKEND_REPO}:latest"
+                    
+                    // SSM Deploy Logic
+                    echo "Deploying to EC2 via SSM..."
                     sh """
                         aws ssm send-command \
                           --targets "Key=tag:Role,Values=Frontend" \
@@ -92,15 +84,12 @@ pipeline {
     post {
         always {
             echo 'Pipeline finished.'
-            // Optional: cleanWs()
         }
         success {
             echo 'Pipeline completed successfully!'
-            // You can add notifications here, e.g., for Slack or email.
         }
         failure {
             echo 'Pipeline failed.'
-            // You can add notifications here, e.g., for Slack or email.
         }
     }
 }
