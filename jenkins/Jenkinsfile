@@ -11,10 +11,6 @@ pipeline {
         SONAR_PROJECT_KEY = "E-commerce"
     }
 
-    tools {
-        nodejs "NodeJS"       // for frontend unit tests
-    }
-
     stages {
         stage('SonarQube Analysis') {
             steps {
@@ -100,3 +96,5 @@ pipeline {
         }
     }
 }
+
+
