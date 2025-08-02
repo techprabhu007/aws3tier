@@ -16,13 +16,6 @@ pipeline {
     }
 
     stages {
-
-        stage('Checkout Code') {
-            steps {
-                git 'https://github.com/your-repo/aws-3tier-app.git'
-            }
-        }
-
         stage('Frontend Unit Tests') {
             steps {
                 dir('frontend') {
