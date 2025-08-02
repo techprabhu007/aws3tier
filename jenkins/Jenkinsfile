@@ -14,21 +14,7 @@ pipeline {
     }
 
     stages {
-        stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('SonarQube') {
-                    withCredentials([string(credentialsId: 'E-commerce', variable: 'SONAR_TOKEN')]) {
-                        sh """
-                            sonar-scanner \
-                              -Dsonar.projectKey=aws3tier \
-                              -Dsonar.projectName=aws3tier \
-                              -Dsonar.sources=. \
-                              -Dsonar.login=$SONAR_TOKEN
-                        """
-                    }
-                }
-            }
-        }
+        
 
         stage('Build Docker Images') {
             steps {
